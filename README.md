@@ -1,7 +1,7 @@
 # DealerPulse: Serverless Sales & CRM Analytics Pipeline
-[![CI]
-(https://github.com/varshan1805/dealerpulse/actions/workflows/ci.yml/badge.svg)]
-(https://github.com/varshan1805/dealerpulse/actions/workflows/ci.yml)
+
+[![CI](https://github.com/varshan1805/dealerpulse/actions/workflows/ci.yml/badge.svg)](https://github.com/varshan1805/dealerpulse/actions/workflows/ci.yml)
+
 An event-driven AWS pipeline that turns messy dealership lead exports into a clean,
 PII-free dataset and a live sales dashboard. Upload a CSV and, seconds later, bad rows are
 quarantined with reasons, metrics are computed, and the dashboard updates. There are no
