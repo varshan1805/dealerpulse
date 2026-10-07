@@ -1,0 +1,21 @@
+name: CI
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install boto3 cfn-lint playwright
+      - name: Install Chromium for the dashboard tests
+        run: playwright install --with-deps chromium
+      - name: Unit and browser tests
+        run: python -m unittest discover -s tests -v
+      - name: Lint SAM/CloudFormation template
+        run: cfn-lint template.yaml

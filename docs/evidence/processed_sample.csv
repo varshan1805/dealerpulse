@@ -1,0 +1,6 @@
+lead_id,created_date,source,model_segment,status,salesperson,city,last_followup_date,sale_amount,phone_masked
+L00042,2026-06-19,Walk-in,Hatchback,New,Farhan Ali,Salem,2026-10-03,,XXXXXX0241
+L00002,2026-04-10,Phone,Hatchback,New,Hari Prasad,Salem,2026-09-29,,XXXXXX9081
+L00003,2026-08-04,Walk-in,Hatchback,Contacted,Farhan Ali,Madurai,2026-09-28,,XXXXXX5272
+L00004,2026-04-20,Phone,Hatchback,New,Janani K,Chennai,2026-10-04,,XXXXXX5694
+L00005,2026-09-07,Walk-in,SUV,New,Farhan Ali,Chennai,2026-09-07,,XXXXXX5687

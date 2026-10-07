@@ -1,0 +1,21 @@
+{
+  "file": "raw/test_leads.csv",
+  "total_rejected": 2,
+  "errors": [
+    {
+      "row": 3,
+      "lead_id": "L00001",
+      "reasons": [
+        "created_date is in the future",
+        "last_followup_date is before created_date"
+      ]
+    },
+    {
+      "row": 26,
+      "lead_id": "",
+      "reasons": [
+        "invalid or missing lead_id"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+INIT_START Runtime Version: python:3.12.mainlinev2.v43	Runtime Version ARN: arn:aws:lambda:ap-south-1::runtime:0fec05b8b43b0ecfbabe4fd585b35e423f655861556712f8a10b0e8739c36c07
+[INFO]	2026-10-06T23:49:21.516Z		Found credentials in environment variables.
+START RequestId: 6ac37cd8-f4c3-403b-82cc-9e1ce996b674 Version: $LATEST
+[INFO]	2026-10-06T23:49:21.918Z	6ac37cd8-f4c3-403b-82cc-9e1ce996b674	raw/test_leads.csv: 61 rows, 58 valid, 2 rejected, 1 duplicates
+END RequestId: 6ac37cd8-f4c3-403b-82cc-9e1ce996b674
+REPORT RequestId: 6ac37cd8-f4c3-403b-82cc-9e1ce996b674	Duration: 356.98 ms	Billed Duration: 642 ms	Memory Size: 256 MB	Max Memory Used: 103 MB	Init Duration: 284.22 ms

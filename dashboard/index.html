@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DealerPulse | Sales &amp; CRM Analytics</title>
+<style>
+  :root { --bg:#0d1117; --card:#161b22; --line:#30363d; --text:#e6edf3; --mute:#8b949e; --accent:#58a6ff; --good:#3fb950; --warn:#d29922; --bad:#f85149; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--text); }
+  header { padding:20px 28px; border-bottom:1px solid var(--line); display:flex; flex-wrap:wrap; gap:12px; align-items:baseline; justify-content:space-between; }
+  h1 { margin:0; font-size:20px; } h1 span { color:var(--accent); }
+  #status { color:var(--mute); font-size:13px; }
+  #banner { display:none; margin:16px 28px 0; padding:10px 14px; border:1px solid var(--warn); border-radius:8px; color:var(--warn); }
+  main { padding:20px 28px 40px; max-width:1200px; margin:0 auto; }
+  .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:14px; margin-bottom:18px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; }
+  .kpi .label { color:var(--mute); font-size:12px; text-transform:uppercase; letter-spacing:.04em; }
+  .kpi .value { font-size:26px; font-weight:650; margin-top:4px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(340px,1fr)); gap:14px; margin-bottom:14px; }
+  h2 { font-size:14px; margin:0 0 12px; color:var(--mute); font-weight:600; }
+  .chart { position:relative; height:260px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th,td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); }
+  th { color:var(--mute); font-weight:600; }
+  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .pill { padding:1px 8px; border-radius:99px; font-size:12px; border:1px solid var(--line); }
+  .sev-high { color:var(--bad); } .sev-mid { color:var(--warn); }
+  .scroll { overflow-x:auto; max-height:340px; overflow-y:auto; }
+  .chart-fallback { height:100%; display:flex; align-items:center; justify-content:center;
+    text-align:center; color:var(--mute); font-size:13px; padding:0 20px;
+    border:1px dashed var(--line); border-radius:8px; }
+  footer { color:var(--mute); font-size:12px; padding:0 28px 28px; max-width:1200px; margin:0 auto; }
+</style>
+</head>
+<body>
+<header>
+  <h1><span>Dealer</span>Pulse <small style="color:var(--mute);font-weight:400">sales &amp; CRM analytics</small></h1>
+  <div id="status">loading…</div>
+</header>
+<div id="banner"></div>
+<main>
+  <section class="kpis" id="kpis"></section>
+  <section class="grid">
+    <div class="card"><h2>Sales funnel (active leads at or beyond each stage)</h2><div class="chart"><canvas id="funnel"></canvas></div></div>
+    <div class="card"><h2>Conversion rate by lead source</h2><div class="chart"><canvas id="source"></canvas></div></div>
+  </section>
+  <section class="grid">
+    <div class="card"><h2>Leads and sales by month created</h2><div class="chart"><canvas id="monthly"></canvas></div></div>
+    <div class="card"><h2>Revenue by model segment</h2><div class="chart"><canvas id="segment"></canvas></div></div>
+  </section>
+  <section class="grid">
+    <div class="card"><h2>Salesperson leaderboard</h2><div class="scroll"><table id="people"></table></div></div>
+    <div class="card"><h2 id="overdue-title">Overdue follow-ups</h2><div class="scroll"><table id="overdue"></table></div></div>
+  </section>
+  <section class="card"><h2>Recent ingestion runs</h2><div class="scroll"><table id="runs"></table></div></section>
+</main>
+<footer>Open with <code>?api=https://YOUR-API-ID.execute-api.REGION.amazonaws.com</code> to read live data from your deployed stack. All data shown is synthetic.</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="sample-metrics.js"></script>
+<script>
+const inr = new Intl.NumberFormat('en-IN', { style:'currency', currency:'INR', maximumFractionDigits:0 });
+const compact = new Intl.NumberFormat('en-IN', { notation:'compact', maximumFractionDigits:1 });
+const pct = x => (x * 100).toFixed(1) + '%';
+const $ = id => document.getElementById(id);
+
+// Build table cells with textContent only (never innerHTML) so API data can't inject markup.
+function fillTable(el, headers, rows, numericCols = []) {
+  el.replaceChildren();
+  const thead = el.createTHead().insertRow();
+  headers.forEach((h, i) => { const th = document.createElement('th'); th.textContent = h; if (numericCols.includes(i)) th.className = 'num'; thead.appendChild(th); });
+  const body = el.createTBody();
+  if (!rows.length) { const td = body.insertRow().insertCell(); td.colSpan = headers.length; td.textContent = 'Nothing to show'; return; }
+  rows.forEach(r => { const tr = body.insertRow(); r.forEach((v, i) => { const td = tr.insertCell(); td.textContent = v; if (numericCols.includes(i)) td.className = 'num'; }); });
+}
+
+// Chart.js is the only external dependency. If it cannot load (offline, blocked CDN,
+// corporate proxy), the KPIs and tables must still render -- charts are an enhancement,
+// not a prerequisite. Without this guard a missing Chart.js throws and the page is blank.
+const chartsReady = () => typeof Chart !== 'undefined';
+
+function chart(id, type, labels, datasets, extra = {}) {
+  const canvas = $(id);
+  if (!chartsReady()) {
+    const box = canvas.parentElement;
+    box.replaceChildren();
+    const msg = document.createElement('div');
+    msg.className = 'chart-fallback';
+    msg.textContent = 'Chart unavailable offline. The same figures are in the tables below.';
+    box.appendChild(msg);
+    return null;
+  }
+  Chart.defaults.color = '#8b949e'; Chart.defaults.borderColor = '#30363d';
+  return new Chart(canvas, { type, data: { labels, datasets }, options: { responsive:true, maintainAspectRatio:false, ...extra } });
+}
+
+function render(m, runs) {
+  const t = m.totals;
+  const kpis = [['Total leads', t.leads.toLocaleString('en-IN')], ['Sold (booked + delivered)', t.sold.toLocaleString('en-IN')],
+    ['Conversion rate', pct(t.conversion_rate)], ['Revenue', inr.format(t.revenue)], ['Avg deal value', inr.format(t.avg_deal_value)],
+    ['Overdue follow-ups', m.overdue_followups.count.toLocaleString('en-IN')]];
+  $('kpis').replaceChildren(...kpis.map(([l, v]) => { const d = document.createElement('div'); d.className = 'card kpi';
+    const a = document.createElement('div'); a.className = 'label'; a.textContent = l;
+    const b = document.createElement('div'); b.className = 'value'; b.textContent = v; d.append(a, b); return d; }));
+
+  chart('funnel', 'bar', m.funnel.map(f => f.stage), [{ data: m.funnel.map(f => f.leads), backgroundColor: '#58a6ff' }],
+    { indexAxis:'y', plugins:{ legend:{ display:false } } });
+  chart('source', 'bar', m.by_source.map(s => s.name), [{ data: m.by_source.map(s => +(s.conversion_rate * 100).toFixed(1)), backgroundColor: '#3fb950' }],
+    { plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label: c => c.parsed.y + '% converted' } } }, scales:{ y:{ ticks:{ callback: v => v + '%' } } } });
+  chart('monthly', 'line', m.by_month.map(x => x.name), [
+    { label:'Leads', data: m.by_month.map(x => x.leads), borderColor:'#58a6ff', tension:.3 },
+    { label:'Sold', data: m.by_month.map(x => x.sold), borderColor:'#3fb950', tension:.3 }]);
+  chart('segment', 'doughnut', m.by_segment.map(s => s.name), [{ data: m.by_segment.map(s => s.revenue),
+    backgroundColor:['#58a6ff','#3fb950','#d29922','#bc8cff','#f778ba'] }],
+    { plugins:{ tooltip:{ callbacks:{ label: c => c.label + ': ' + compact.format(c.parsed) } } } });
+
+  fillTable($('people'), ['Salesperson','Leads','Sold','Conv.','Revenue'],
+    m.salespeople.map(p => [p.name, p.leads, p.sold, pct(p.conversion_rate), compact.format(p.revenue)]), [1,2,3,4]);
+  const od = m.overdue_followups;
+  $('overdue-title').textContent = `Overdue follow-ups (> ${od.threshold_days} days), worst ${od.top.length} of ${od.count}`;
+  fillTable($('overdue'), ['Lead','Owner','Stage','Days idle','Phone'],
+    od.top.map(o => [o.lead_id, o.salesperson, o.status, o.days_since_followup, o.phone_masked]), [3]);
+  if (!chartsReady()) {
+    $('banner').style.display = 'block';
+    $('banner').textContent = 'Charts could not load (no connection to the Chart.js CDN). All figures below are still live.';
+  }
+  fillTable($('runs'), ['When (UTC)','File','Rows','Valid','Rejected','Duplicates'],
+    runs.map(r => [(r.sk || '').split('#')[0].replace('T',' ').slice(0,19), r.source_key, r.rows_total, r.rows_valid, r.rows_rejected, r.duplicates_removed]), [2,3,4,5]);
+}
+
+async function main() {
+  const api = new URLSearchParams(location.search).get('api');
+  let metrics, runs = [];
+  if (api) {
+    const base = api.replace(/\/$/, '');
+    const [mr, rr] = await Promise.all([fetch(base + '/metrics'), fetch(base + '/runs')]);
+    if (!mr.ok) throw new Error(mr.status === 404 ? 'No data yet. Upload a CSV to s3://<bucket>/raw/ first.' : 'API error ' + mr.status);
+    metrics = await mr.json(); runs = rr.ok ? (await rr.json()).runs : [];
+    $('status').textContent = 'live · updated ' + (metrics.meta?.updated_at || '').slice(0,19).replace('T',' ') + ' UTC';
+  } else {
+    metrics = window.SAMPLE_METRICS; runs = window.SAMPLE_RUNS || [];
+    $('banner').style.display = 'block';
+    $('banner').textContent = 'Showing built-in synthetic sample data. Add ?api=<your API URL> to see your deployed pipeline.';
+    $('status').textContent = 'sample data';
+  }
+  render(metrics, runs);
+}
+main().catch(e => { $('status').textContent = 'error'; $('banner').style.display = 'block'; $('banner').textContent = e.message; });
+</script>
+</body>
+</html>
