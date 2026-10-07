@@ -11,7 +11,7 @@ out of AWS or produced by a browser rendering the dashboard.
 | `quarantine_test_leads.errors.json` | Both rejected rows, each with its reason - bad data is reported, never silently dropped |
 | `processed_sample.csv` | The cleaned output: no `customer_name` column, phone numbers masked |
 | `cloudwatch_ingest.log` | The ingest Lambda's own log line plus the `REPORT` line with duration and memory |
-| `dashboard_live.png` | Dashboard rendering the live API payload (charts blank: the capture harness stubs Chart.js) |
+| `dashboard_live.png` | The hosted demo rendering live API data: 58 leads, 22.4% conversion, all four charts drawn |
 | `dashboard_offline_fallback.png` | Dashboard with the Chart.js CDN blocked - KPIs and tables still render |
 
 ## The run these files describe
