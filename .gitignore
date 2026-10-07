@@ -6,3 +6,4 @@ leads.csv
 samconfig.toml
 .venv/
 .DS_Store
+dashboard/config.js

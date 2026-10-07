@@ -13,6 +13,11 @@ hand in Excel.
 
 **All data in this repository is synthetic.** No real customer record was used.
 
+**Live demo:** http://dealerpulse-demo-897201144484.s3-website.ap-south-1.amazonaws.com
+
+The demo page is served from S3 static hosting and reads live data from the deployed
+API on every load, so the figures change whenever the pipeline runs.
+
 ---
 
 ## Verified on AWS
@@ -102,7 +107,8 @@ These are the choices worth discussing in an interview.
 - **Each upload is treated as a full snapshot** and replaces `METRICS/LATEST`. Incremental or multi-file merge logic is not implemented.
 - **Funnel uses current status only.** Without status history, Lost leads can't be attributed to the stage where they dropped out.
 - **The API is unauthenticated and CORS is `*`.** That is acceptable only because the data is synthetic. Production would add a Cognito JWT authorizer and restrict origins.
-- **The dashboard is not hosted.** Open `dashboard/index.html` locally with `?api=...`. Hosting on S3 + CloudFront is a roadmap item.
+- **The demo is served over HTTP, not HTTPS.** S3 website endpoints do not support TLS; putting CloudFront in front would fix that and is the next step.
+- **A local `file://` copy cannot call the API.** Browsers treat a local file as an opaque origin and block the request whatever CORS headers the server sends, so run it from the hosted link, or serve the folder over `http://localhost`.
 - **Single region, single environment**, with no dev/prod split.
 - **Not load-tested**, and running cost not yet measured over time.
 
@@ -151,8 +157,22 @@ curl <ApiUrl output>/metrics
 aws s3 ls s3://<BucketName output>/quarantine/
 ```
 
-Open `dashboard/index.html?api=<ApiUrl output>`; the status in the top right should read
-`live`.
+Then view it one of three ways:
+
+```bash
+# 1. the hosted demo (already configured)
+#    http://dealerpulse-demo-897201144484.s3-website.ap-south-1.amazonaws.com
+
+# 2. served locally - works because localhost is a real origin
+cd dashboard && python3 -m http.server 8000
+#    http://localhost:8000/index.html?api=<ApiUrl output>
+
+# 3. your own S3 demo: copy config.example.js to config.js, set your API URL, then
+aws s3 sync dashboard/ s3://<your-demo-bucket>/ --exclude "config.example.js"
+```
+
+The status in the top right should read `live`. Opening `index.html` directly from disk
+will not work - see the limitations above.
 
 **Tear down to avoid charges:** empty the bucket (`aws s3 rm s3://<bucket> --recursive`),
 then `sam delete`.

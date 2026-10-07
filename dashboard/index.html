@@ -36,7 +36,7 @@
 <body>
 <header>
   <h1><span>Dealer</span>Pulse <small style="color:var(--mute);font-weight:400">sales &amp; CRM analytics</small></h1>
-  <div id="status">loading…</div>
+  <div id="status">loading&hellip;</div>
 </header>
 <div id="banner"></div>
 <main>
@@ -58,7 +58,9 @@
 <footer>Open with <code>?api=https://YOUR-API-ID.execute-api.REGION.amazonaws.com</code> to read live data from your deployed stack. All data shown is synthetic.</footer>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<script src="sample-metrics.js"></script>
+<!-- Optional per-deployment config (sets window.DEFAULT_API). Absent locally. -->
+<script src="config.js" onerror="void 0"></script>
+<script src="sample-metrics.js" onerror="void 0"></script>
 <script>
 const inr = new Intl.NumberFormat('en-IN', { style:'currency', currency:'INR', maximumFractionDigits:0 });
 const compact = new Intl.NumberFormat('en-IN', { notation:'compact', maximumFractionDigits:1 });
@@ -130,15 +132,19 @@ function render(m, runs) {
 }
 
 async function main() {
-  const api = new URLSearchParams(location.search).get('api');
+  // Precedence: ?api= in the URL, then a deployment's own config.js, then sample data.
+  // config.js is written per deployment and is not committed, so the same index.html
+  // works unchanged locally, on S3, or anywhere else it is served from.
+  const api = new URLSearchParams(location.search).get('api') || window.DEFAULT_API || null;
   let metrics, runs = [];
   if (api) {
     const base = api.replace(/\/$/, '');
     const [mr, rr] = await Promise.all([fetch(base + '/metrics'), fetch(base + '/runs')]);
     if (!mr.ok) throw new Error(mr.status === 404 ? 'No data yet. Upload a CSV to s3://<bucket>/raw/ first.' : 'API error ' + mr.status);
     metrics = await mr.json(); runs = rr.ok ? (await rr.json()).runs : [];
-    $('status').textContent = 'live · updated ' + (metrics.meta?.updated_at || '').slice(0,19).replace('T',' ') + ' UTC';
+    $('status').textContent = 'live \u00b7 updated ' + (metrics.meta?.updated_at || '').slice(0,19).replace('T',' ') + ' UTC';
   } else {
+    if (!window.SAMPLE_METRICS) throw new Error('No API configured and no sample data bundled. Open with ?api=<your API URL>.');
     metrics = window.SAMPLE_METRICS; runs = window.SAMPLE_RUNS || [];
     $('banner').style.display = 'block';
     $('banner').textContent = 'Showing built-in synthetic sample data. Add ?api=<your API URL> to see your deployed pipeline.';
